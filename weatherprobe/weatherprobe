@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+
+import click
+from click import UsageError
+import cmd
+from functions.user_ops import *
+from utils import TableIt
+from utils.utils import *
+from utils.constant import INTRO, HELP_STR, PROMPT_MSG
+from weather_api.weather import WeatherData
+
+
+def command_help():
+	""" Print command help """
+	print("\nUsage:\t{} \
+		\nDesc:\t{} \
+		\nOptions:\n\t{} \
+		\nPrompt Inputs:\n\t{} ".format(
+								HELP_STR[curfunc()][0],
+								HELP_STR[curfunc()][1],
+								'\n\t'.join([opts for opts in HELP_STR[curfunc()][2]]),
+								'\n\t'.join([opts for opts in HELP_STR[curfunc()][3]])))
+
+def list_cmds():
+	""" List avilable commands """
+	print("\nCommands:\tDescription")
+	print("-"*60)
+	for k, v in HELP_STR.items():
+		print(f"{k}\t:\t{v[1]}\n")
+
+
+print(INTRO)
+
+# create new user if no users in DB
+init_user()
+
+# loop until user login
+current_user = False
+current_uid = None
+while(not current_user):
+	current_user = login_check()
+
+# current username and uid 
+username = "root"
+if current_user:
+	username = current_user[2]
+	current_uid = current_user[1]
+
+list_cmds()
+
+class REPL(cmd.Cmd):
+	""" Print command help """
+
+	def __init__(self, ctx, username):
+		cmd.Cmd.__init__(self)
+		self.prompt = PROMPT_MSG.format(username)
+		self.ctx = ctx
+
+	def default(self, line):
+		subcommand = line.split()[0]
+		args = line.split()[1:]
+
+		subcommand = cli.commands.get(subcommand)
+		if subcommand:
+			try:
+				subcommand.parse_args(self.ctx, args)
+				self.ctx.forward(subcommand)
+			except UsageError as e:
+				print(e.format_message())
+		else:
+			return cmd.Cmd.default(self, line)
+
+	def emptyline(self):
+		return cmd.Cmd.default(self, '')
+
+
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx):
+	if ctx.invoked_subcommand is None:
+		repl = REPL(ctx, username)
+		repl.cmdloop()
+
+@cli.command()
+@click.option('--help', '-h', is_flag=True, default=False)
+def create(**args):
+	""" create new user """
+	if args['help']:
+		command_help()
+	else: 
+		create_user()
+
+
+@cli.command()
+@click.option('--help', '-h', is_flag=True)
+def remove(**args):
+	""" remove user """
+	if args['help']:
+		command_help()
+	else:
+		remove_user(current_uid)
+
+@cli.command()
+@click.option('--help', '-h', is_flag=True)
+def update(**args):
+	""" update user """
+	if args['help']:
+		command_help()
+	else:
+		update_user()
+
+@cli.command()
+@click.option('--help', '-h', is_flag=True)
+def users(**args):
+	""" list all users in DB """
+	if args['help']:
+		command_help()
+	else:
+		list_users()
+
+@cli.command()
+@click.option('--date', '-d', default=date_now(), help="YYYY-MM-DD")
+@click.option('--time', '-t', default=time_now(), help="HH:mm")
+@click.option('--latitude', '-lat', help="Latitude")
+@click.option('--longitude', '-lon', help="Logitude")
+@click.option('--place', '-p', default="bengaluru", help="Place")
+@click.option('--help', '-h', is_flag=True)
+def weather(date, time, latitude, longitude, place, help):
+	""" get weather report """
+	if help:
+		command_help()
+	else:
+		details = WeatherData(date=date, time=time, latitude=latitude, longitude=longitude, place=place).hourly()
+		if details:
+			report = details['report']
+			print(f"\nLatitude: {details['lat']}\t Longitude: {details['lon']}\n")
+			for key, value in report.items():
+				print(f'{key} \t\t: {value[0]} {value[1]}')
+		else:
+			print("\nData not available.\n")
+		
+
+@cli.command()
+@click.option('--help', '-h', is_flag=True)
+def logout(**args):
+	""" logout user """
+	if args['help']:
+		command_help()
+	else:
+		close_db()
+		exit_prompt("Logout")
+
+@cli.command()
+@click.option('--help', '-h', is_flag=True)
+def exit(**args):
+	""" exit application """
+	close_db()
+	exit_prompt("Exit Application")
+
+@cli.command()
+def commands():
+	""" command list help """
+	list_cmds()
+
+if __name__ == "__main__":
+	cli()
