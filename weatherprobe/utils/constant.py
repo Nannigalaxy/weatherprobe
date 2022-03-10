@@ -1,6 +1,6 @@
 INTRO = "\nWelcome to WeatherProbe CLI Application. Type 'commands' to list commands.\n"
 
-PROMPT_MSG = "\n{}@airprobe$ "
+PROMPT_MSG = "\n{}@weatherprobe$ "
 
 HELP_STR = {
 	"create":["create",
